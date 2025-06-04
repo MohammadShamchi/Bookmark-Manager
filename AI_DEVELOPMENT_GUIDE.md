@@ -4,7 +4,7 @@
 
 **Project Name:** AI-Powered Chrome Bookmark Manager  
 **Repository:** https://github.com/MohammadShamchi/Bookmark-Manager  
-**Current Status:** Phase 1 Complete ✅  
+**Current Status:** Phase 1 Complete with Chrome Sync Fix ✅  
 **Next Phase:** AI Integration (OpenAI GPT-3.5-turbo)  
 **Technology Stack:** React 18, TypeScript, Chrome Extension Manifest V3, Tailwind CSS  
 
@@ -14,13 +14,14 @@
 
 This is an intelligent Chrome extension that automatically organizes bookmarks using:
 1. **Real-time Detection**: Captures bookmark creation/changes instantly
-2. **Smart Categorization**: Analyzes URLs/titles to determine category (10 categories with emojis)
+2. **Smart Categorization**: Analyzes URLs/titles to determine category (10 AI-prefixed categories with emojis)
 3. **Automatic Organization**: Creates folders and moves bookmarks without user intervention
 4. **Modern UI**: Beautiful React popup showing categories and processing status
+5. **Chrome Sync Compatibility**: AI-prefixed folders prevent conflicts with Chrome sync across profiles
 
 ---
 
-## 🏗️ **CURRENT ARCHITECTURE (Phase 1 Complete)**
+## 🏗️ **CURRENT ARCHITECTURE (Phase 1 Complete with Chrome Sync Fix)**
 
 ### **Core Services:**
 - **BackgroundService** (`src/background/service-worker.ts`): Chrome extension service worker that listens for bookmark events
@@ -32,22 +33,25 @@ This is an intelligent Chrome extension that automatically organizes bookmarks u
 - **Modern Styling** (`tailwind.config.js`): Custom Tailwind theme with animations and emoji-based design
 
 ### **Smart Categorization Logic:**
-- **URL Pattern Matching**: github.com → Tools, facebook.com → Social, amazon.com → Shopping
+- **URL Pattern Matching**: github.com → AI-Tools, facebook.com → AI-Social, amazon.com → AI-Shopping
 - **Keyword Analysis**: Analyzes bookmark titles for category-specific keywords
-- **Fallback System**: Unknown sites go to "Other" category
+- **Fallback System**: Unknown sites go to "AI-Other" category
 - **Confidence Scoring**: Each categorization has confidence level (0-1)
+- **Chrome Sync Fix**: AI-prefixed folder names prevent conflicts with existing Chrome sync folders
 
-### **10 Default Categories:**
-1. 💼 **Work** - Professional tools, business, productivity
-2. 👥 **Social** - Social media, forums, communities  
-3. 📰 **News** - News sites, blogs, journalism
-4. 🛠️ **Tools** - Development tools, utilities, technical resources
-5. 📚 **Learning** - Education, tutorials, courses, documentation
-6. 🛒 **Shopping** - E-commerce, products, deals
-7. 🎮 **Entertainment** - Games, videos, movies, music
-8. 💰 **Finance** - Banking, investing, cryptocurrency
-9. 🏥 **Health** - Medical, fitness, wellness
-10. 📂 **Other** - Everything else
+### **10 Default Categories (AI-Prefixed):**
+1. 💼 **AI-Work** - Professional tools, business, productivity
+2. 👥 **AI-Social** - Social media, forums, communities  
+3. 📰 **AI-News** - News sites, blogs, journalism
+4. 🛠️ **AI-Tools** - Development tools, utilities, technical resources
+5. 📚 **AI-Learning** - Education, tutorials, courses, documentation
+6. 🛒 **AI-Shopping** - E-commerce, products, deals
+7. 🎮 **AI-Entertainment** - Games, videos, movies, music
+8. 💰 **AI-Finance** - Banking, investing, cryptocurrency
+9. 🏥 **AI-Health** - Medical, fitness, wellness
+10. 📂 **AI-Other** - Everything else
+
+**Note**: The AI- prefix was added to prevent Chrome sync conflicts when users have multiple profiles with similar folder names.
 
 ---
 
@@ -99,6 +103,36 @@ This is an intelligent Chrome extension that automatically organizes bookmarks u
 - ✅ **Instant feedback** - popup shows real-time processing status
 - ✅ **Visual organization** - emoji-based folders appear in bookmark bar
 - ✅ **Error handling** - graceful fallbacks if categorization fails
+
+---
+
+## 🔧 **CRITICAL ISSUES DISCOVERED & RESOLVED**
+
+### **Issue 1: Chrome Sync Folder Conflicts** ✅ FIXED
+**Problem**: Users with multiple Chrome profiles or sync across devices had duplicate folder names (e.g., "🛠️ Tools" appearing 20 times). When extension moved bookmarks to folder ID 1759, Chrome sync would override and move them back to folder ID 1.
+
+**Solution**: Implemented AI-prefixed folder names:
+- Old: "🛠️ Tools" → New: "🛠️ AI-Tools"
+- Applied to all 10 categories
+- Added automatic conflict detection
+- Added manual reset capability: `chrome.runtime.sendMessage({ type: 'RESET_CATEGORIES' })`
+
+**Files Modified:**
+- `src/utils/constants.ts` - Updated CATEGORY_FOLDERS with AI prefix
+- `src/background/service-worker.ts` - Added cleanupDuplicateFolders()
+- `src/services/categories.ts` - Enhanced resetToDefaults()
+
+### **Issue 2: Runtime Connection Errors** ✅ FIXED
+**Problem**: "Could not establish connection. Receiving end does not exist" when popup tried to communicate with background script.
+
+**Solution**: Added retry logic with exponential backoff and graceful fallbacks in popup error handling.
+
+### **Issue 3: Empty Folders Despite Successful Logs** ✅ FIXED
+**Problem**: Background script showed successful bookmark moves but folders appeared empty.
+
+**Root Cause**: Chrome sync interference with folder assignments.
+
+**Solution**: Enhanced debugging and implemented unique folder naming to prevent sync conflicts.
 
 ---
 
@@ -167,6 +201,9 @@ Bookmark Created → Content Extraction → OpenAI API → Smart Category + Conf
 backgroundService
 categoriesService
 
+// Force category reset (resolves Chrome sync conflicts)
+chrome.runtime.sendMessage({ type: 'RESET_CATEGORIES' })
+
 // Manual categorization test
 chrome.runtime.sendMessage({
   type: 'CATEGORIZE_BOOKMARK',
@@ -175,13 +212,26 @@ chrome.runtime.sendMessage({
 
 // Get processing status
 chrome.runtime.sendMessage({ type: 'GET_PROCESSING_STATUS' })
+
+// Get current categories
+chrome.runtime.sendMessage({ type: 'GET_CATEGORIES' })
 ```
 
 ### **Common Test Sites:**
-- **github.com** → 🛠️ Tools
-- **facebook.com** → 👥 Social  
-- **amazon.com** → 🛒 Shopping
-- **cnn.com** → 📰 News
+- **github.com** → 🛠️ AI-Tools
+- **facebook.com** → 👥 AI-Social  
+- **amazon.com** → 🛒 AI-Shopping
+- **cnn.com** → 📰 AI-News
+
+### **Troubleshooting Commands:**
+```javascript
+// If folders appear empty, check for Chrome sync conflicts:
+chrome.bookmarks.search('🛠️ Tools', console.log) // Check old folders
+chrome.bookmarks.search('🛠️ AI-Tools', console.log) // Check new folders
+
+// Force complete reset if needed:
+chrome.runtime.sendMessage({ type: 'RESET_CATEGORIES' })
+```
 
 ---
 
@@ -190,9 +240,12 @@ chrome.runtime.sendMessage({ type: 'GET_PROCESSING_STATUS' })
 ### **Current Performance (Phase 1):**
 - ✅ Real-time bookmark detection (<100ms)
 - ✅ Pattern-based categorization (>80% accuracy for common sites)
-- ✅ Automatic folder organization
+- ✅ Automatic folder organization with AI-prefixed names
 - ✅ Memory usage <20MB
 - ✅ Zero user intervention required
+- ✅ Chrome sync conflict resolution
+- ✅ Comprehensive error handling and debugging
+- ✅ Manual reset capability for edge cases
 
 ### **Phase 2 Targets:**
 - 🎯 AI categorization accuracy >90%

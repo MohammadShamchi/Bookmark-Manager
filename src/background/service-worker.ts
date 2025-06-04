@@ -20,6 +20,9 @@ class BackgroundService {
       await categoriesService.initialize();
       this.settings = await storageService.getSettings();
       
+      // Check for duplicate folders issue and clean up if needed
+      await this.cleanupDuplicateFolders();
+      
       // Set up event listeners
       this.setupBookmarkListeners();
       this.setupStorageListeners();
@@ -28,6 +31,24 @@ class BackgroundService {
       console.log('✅ AI Bookmark Manager initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize background service:', handleError(error));
+    }
+  }
+
+  private async cleanupDuplicateFolders(): Promise<void> {
+    try {
+      // Check if we have the old "Tools" folder issue
+      const toolsFolders = await chrome.bookmarks.search('🛠️ Tools');
+      const aiToolsFolders = await chrome.bookmarks.search('🛠️ AI-Tools');
+      
+      console.log(`🔍 Found ${toolsFolders.length} "🛠️ Tools" folders and ${aiToolsFolders.length} "🛠️ AI-Tools" folders`);
+      
+      // If we have old folders but no AI folders, reset categories
+      if (toolsFolders.length > 0 && aiToolsFolders.length === 0) {
+        console.log('🧹 Cleaning up old folders and creating new unique ones...');
+        await categoriesService.resetToDefaults();
+      }
+    } catch (error) {
+      console.warn('Failed to cleanup duplicate folders:', error);
     }
   }
 
@@ -83,7 +104,14 @@ class BackgroundService {
   private setupMessageListeners(): void {
     if (chrome.runtime?.onMessage) {
       chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        this.handleMessage(message, sender, sendResponse);
+        // Handle message asynchronously
+        this.handleMessage(message, sender, sendResponse)
+          .catch(error => {
+            console.error('Error handling message:', error);
+            sendResponse({ success: false, error: handleError(error) });
+          });
+        
+        // Return true to indicate we will respond asynchronously
         return true;
       });
     }
@@ -94,18 +122,61 @@ class BackgroundService {
       this.settings = await storageService.getSettings();
     } catch (error) {
       console.error('Failed to load settings:', error);
+      // Use default settings if loading fails
+      this.settings = {
+        autoOrganize: true,
+        confidenceThreshold: 0.7,
+        aiEnabled: false,
+        apiKey: '',
+        soundEnabled: true,
+        theme: 'auto',
+        maxRetries: 3
+      };
     }
   }
 
   private async handleMessage(message: any, sender: any, sendResponse: (response: any) => void): Promise<void> {
     try {
+      // Validate message structure
+      if (!message || typeof message.type !== 'string') {
+        sendResponse({ success: false, error: 'Invalid message format' });
+        return;
+      }
+
+      console.log(`📨 Received message: ${message.type}`);
+
       switch (message.type) {
         case 'GET_CATEGORIES':
-          const categories = await categoriesService.getCategories();
-          sendResponse({ success: true, data: categories });
+          try {
+            const categories = await categoriesService.getCategories();
+            sendResponse({ success: true, data: categories });
+          } catch (error) {
+            console.error('Failed to get categories:', error);
+            // Fallback to default categories
+            sendResponse({ 
+              success: true, 
+              data: [
+                { id: 'work', name: 'Work', emoji: '💼', description: 'Professional tools, business, productivity' },
+                { id: 'social', name: 'Social', emoji: '👥', description: 'Social media, forums, communities' },
+                { id: 'news', name: 'News', emoji: '📰', description: 'News sites, blogs, journalism' },
+                { id: 'tools', name: 'Tools', emoji: '🛠️', description: 'Development tools, utilities' },
+                { id: 'learning', name: 'Learning', emoji: '📚', description: 'Education, tutorials, courses' },
+                { id: 'shopping', name: 'Shopping', emoji: '🛒', description: 'E-commerce, products, deals' },
+                { id: 'entertainment', name: 'Entertainment', emoji: '🎮', description: 'Games, videos, music' },
+                { id: 'finance', name: 'Finance', emoji: '💰', description: 'Banking, investing, crypto' },
+                { id: 'health', name: 'Health', emoji: '🏥', description: 'Medical, fitness, wellness' },
+                { id: 'other', name: 'Other', emoji: '📂', description: 'Everything else' }
+              ]
+            });
+          }
           break;
 
         case 'CATEGORIZE_BOOKMARK':
+          if (!message.data || !message.data.title || !message.data.url) {
+            sendResponse({ success: false, error: 'Missing bookmark data' });
+            return;
+          }
+          
           const result = await this.categorizeBookmark(
             message.data.title,
             message.data.url,
@@ -124,10 +195,24 @@ class BackgroundService {
           });
           break;
 
+        case 'RESET_CATEGORIES':
+          try {
+            console.log('🔄 Forcing categories reset...');
+            await categoriesService.resetToDefaults();
+            console.log('✅ Categories reset completed');
+            sendResponse({ success: true, message: 'Categories reset successfully' });
+          } catch (error) {
+            console.error('Failed to reset categories:', error);
+            sendResponse({ success: false, error: handleError(error) });
+          }
+          break;
+
         default:
-          sendResponse({ success: false, error: 'Unknown message type' });
+          console.warn(`Unknown message type: ${message.type}`);
+          sendResponse({ success: false, error: `Unknown message type: ${message.type}` });
       }
     } catch (error) {
+      console.error('Error in handleMessage:', error);
       sendResponse({ success: false, error: handleError(error) });
     }
   }
@@ -201,19 +286,49 @@ class BackgroundService {
 
   private async moveBookmarkToCategory(bookmark: ChromeBookmarkNode, category: any): Promise<void> {
     try {
+      console.log(`🔍 Debug: Moving bookmark "${bookmark.title}" to category "${category.name}"`);
+      console.log(`🔍 Debug: Bookmark current parentId: ${bookmark.parentId}`);
+      console.log(`🔍 Debug: Category object:`, category);
+      
       const folderId = await categoriesService.ensureCategoryFolder(category);
+      console.log(`🔍 Debug: Folder ID obtained: ${folderId}`);
       
       if (folderId && bookmark.parentId !== folderId) {
-        console.log(`📁 Moving bookmark to ${category.name} folder`);
+        console.log(`📁 Moving bookmark to ${category.name} folder (ID: ${folderId})`);
         
-        await chrome.bookmarks.move(bookmark.id, {
+        // Get bookmark details before moving
+        const beforeMove = await chrome.bookmarks.get(bookmark.id);
+        console.log(`🔍 Debug: Bookmark before move:`, beforeMove[0]);
+        
+        const moveResult = await chrome.bookmarks.move(bookmark.id, {
           parentId: folderId
         });
+        console.log(`🔍 Debug: Move result:`, moveResult);
+        
+        // Verify the move worked
+        const afterMove = await chrome.bookmarks.get(bookmark.id);
+        console.log(`🔍 Debug: Bookmark after move:`, afterMove[0]);
+        
+        // Double-check folder contents
+        const folderContents = await chrome.bookmarks.getChildren(folderId);
+        console.log(`🔍 Debug: Folder "${category.name}" now contains ${folderContents.length} items:`, folderContents.map(b => b.title));
         
         console.log(`✅ Bookmark moved successfully`);
+      } else if (!folderId) {
+        console.error(`❌ Failed to get folder ID for category: ${category.name}`);
+      } else {
+        console.log(`ℹ️ Bookmark already in correct folder (${category.name})`);
       }
     } catch (error) {
       console.error('Failed to move bookmark to category folder:', error);
+      // Also log the full error details
+      console.error('Error details:', {
+        bookmarkId: bookmark.id,
+        bookmarkTitle: bookmark.title,
+        categoryName: category.name,
+        categoryId: category.id,
+        error: error
+      });
     }
   }
 

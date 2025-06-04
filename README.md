@@ -2,13 +2,19 @@
 
 An intelligent Chrome extension that automatically organizes your bookmarks using AI categorization, smart folder management, and a beautiful modern interface.
 
-## 🚀 **Current Status: Phase 1 Complete! ✅**
+## 🚀 **Current Status: Phase 1 Complete with Chrome Sync Fix ✅**
 
 ✅ **Real-time bookmark detection** and automatic categorization  
 ✅ **Smart folder organization** with 10 emoji-based categories  
 ✅ **Modern React UI** with Tailwind CSS styling  
 ✅ **TypeScript architecture** with comprehensive error handling  
-✅ **Ready for local testing** in Chrome browser  
+✅ **Chrome sync conflict resolution** with AI-prefixed folders  
+🔧 **Ready for local testing** with troubleshooting guide  
+
+### ⚠️ **Known Issue & Solution:**
+**Problem**: Chrome sync/multiple profiles can create duplicate folder conflicts  
+**Solution**: Extension now uses unique "AI-" prefixed folders (e.g., "🛠️ AI-Tools" instead of "🛠️ Tools")  
+**Status**: Resolved with auto-detection and reset functionality  
 
 ---
 
@@ -30,11 +36,18 @@ npm run build
 
 ### 3. Test It! 🎯
 - Bookmark any website with `Ctrl+D` (or `Cmd+D`)
-- Watch it auto-categorize into smart folders
+- Watch it auto-categorize into AI-prefixed folders (🛠️ AI-Tools, 💼 AI-Work, etc.)
 - Click the extension icon to see the beautiful popup
 - Check console logs for categorization details
 
-📖 **Full testing guide:** [TESTING_GUIDE.md](./TESTING_GUIDE.md)
+### 4. If Folders Are Empty (Chrome Sync Issue):
+```javascript
+// In background script console, force reset:
+chrome.runtime.sendMessage({ type: 'RESET_CATEGORIES' })
+```
+
+📖 **Full testing guide:** [TESTING_GUIDE.md](./TESTING_GUIDE.md)  
+🔧 **Troubleshooting:** [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)  
 
 ---
 

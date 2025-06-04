@@ -303,16 +303,20 @@ export class CategoriesService {
 
   // Folder Management
   async ensureCategoryFolder(category: Category): Promise<string> {
+    console.log(`🔍 Debug: ensureCategoryFolder called for category "${category.name}" (ID: ${category.id})`);
+    console.log(`🔍 Debug: Category has folderId: ${category.folderId}`);
+    
     if (category.folderId) {
       // Verify folder still exists
       try {
         const chrome = (globalThis as any).chrome;
         if (chrome?.bookmarks) {
-          await chrome.bookmarks.get(category.folderId);
+          const folderInfo = await chrome.bookmarks.get(category.folderId);
+          console.log(`🔍 Debug: Existing folder found:`, folderInfo[0]);
           return category.folderId;
         }
       } catch (error) {
-        console.warn('Category folder no longer exists, creating new one');
+        console.warn('Category folder no longer exists, creating new one:', error);
       }
     }
 
@@ -321,17 +325,31 @@ export class CategoriesService {
       const chrome = (globalThis as any).chrome;
       if (chrome?.bookmarks) {
         const folderName = `${category.emoji} ${category.name}`;
+        console.log(`🔍 Debug: Creating new folder with name: "${folderName}"`);
+        
         const folder = await chrome.bookmarks.create({
           parentId: '1', // Bookmarks bar
           title: folderName
         });
+        console.log(`🔍 Debug: New folder created:`, folder);
 
         // Update category with new folder ID
+        console.log(`🔍 Debug: Updating category with new folderId: ${folder.id}`);
         await this.updateCategory(category.id, { folderId: folder.id });
+        
+        // Verify the category was updated
+        const updatedCategory = await this.getCategoryById(category.id);
+        console.log(`🔍 Debug: Updated category:`, updatedCategory);
+        
         return folder.id;
       }
     } catch (error) {
       console.error('Failed to create category folder:', error);
+      console.error('Error details:', {
+        categoryId: category.id,
+        categoryName: category.name,
+        error: error
+      });
     }
 
     return '';
@@ -369,10 +387,31 @@ export class CategoriesService {
 
   // Reset to defaults
   async resetToDefaults(): Promise<void> {
-    this.categories = [];
-    this.initialized = false;
-    await storageService.saveCategories([]);
-    await this.initialize();
+    console.log('🔄 Starting complete categories reset...');
+    
+    try {
+      // Clear everything
+      this.categories = [];
+      this.initialized = false;
+      
+      // Clear storage
+      await storageService.saveCategories([]);
+      console.log('✅ Cleared categories from storage');
+      
+      // Re-initialize with fresh categories
+      await this.initialize();
+      console.log('✅ Categories reset and re-initialized');
+      
+      // Log the new categories
+      const newCategories = await this.getCategories();
+      console.log('📂 New categories created:', newCategories.map(c => `${c.emoji} ${c.name} (ID: ${c.folderId})`));
+      
+    } catch (error) {
+      console.error('Failed to reset categories:', error);
+      // Fallback - just use defaults
+      this.categories = DEFAULT_CATEGORIES;
+      this.initialized = true;
+    }
   }
 }
 

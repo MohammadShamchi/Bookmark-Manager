@@ -26,16 +26,16 @@ Content: {content}
 
 // Folder Names for Categories
 export const CATEGORY_FOLDERS = {
-  work: '💼 Work',
-  social: '👥 Social', 
-  news: '📰 News',
-  tools: '🛠️ Tools',
-  learning: '📚 Learning',
-  shopping: '🛒 Shopping',
-  entertainment: '🎮 Entertainment',
-  finance: '💰 Finance',
-  health: '🏥 Health',
-  other: '📂 Other'
+  work: '💼 AI-Work',
+  social: '👥 AI-Social', 
+  news: '📰 AI-News',
+  tools: '🛠️ AI-Tools',
+  learning: '📚 AI-Learning',
+  shopping: '🛒 AI-Shopping',
+  entertainment: '🎮 AI-Entertainment',
+  finance: '💰 AI-Finance',
+  health: '🏥 AI-Health',
+  other: '📂 AI-Other'
 } as const;
 
 // Storage Keys

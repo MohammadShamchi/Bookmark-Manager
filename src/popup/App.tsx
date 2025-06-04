@@ -21,29 +21,99 @@ const App: React.FC = () => {
             setIsLoading(true);
             setError(null);
 
-            // Load categories
-            const categoriesResponse = await sendMessage({ type: 'GET_CATEGORIES' });
-            if (categoriesResponse.success) {
-                setCategories(categoriesResponse.data);
+            // Load categories with retry logic
+            const categoriesResponse = await sendMessageWithRetry({ type: 'GET_CATEGORIES' });
+            if (categoriesResponse?.success) {
+                setCategories(categoriesResponse.data || []);
             }
 
-            // Load processing status
-            const statusResponse = await sendMessage({ type: 'GET_PROCESSING_STATUS' });
-            if (statusResponse.success) {
-                setProcessingStatus(statusResponse.data);
+            // Load processing status with retry logic
+            const statusResponse = await sendMessageWithRetry({ type: 'GET_PROCESSING_STATUS' });
+            if (statusResponse?.success) {
+                setProcessingStatus(statusResponse.data || { isProcessing: false, queueLength: 0 });
             }
 
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load data');
+            console.warn('Failed to load popup data:', err);
         } finally {
             setIsLoading(false);
         }
     };
 
     const sendMessage = (message: any): Promise<any> => {
-        return new Promise((resolve) => {
-            chrome.runtime.sendMessage(message, resolve);
+        return new Promise((resolve, reject) => {
+            if (!chrome?.runtime?.sendMessage) {
+                reject(new Error('Chrome runtime not available'));
+                return;
+            }
+
+            chrome.runtime.sendMessage(message, (response) => {
+                if (chrome.runtime.lastError) {
+                    // Clear the error and reject
+                    const error = chrome.runtime.lastError;
+                    console.warn('Chrome runtime error:', error.message);
+                    reject(new Error(error.message || 'Failed to communicate with background script'));
+                    return;
+                }
+                resolve(response);
+            });
         });
+    };
+
+    const sendMessageWithRetry = async (message: any, maxRetries: number = 3): Promise<any> => {
+        let lastError: Error | null = null;
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                // Add a small delay for subsequent attempts
+                if (attempt > 1) {
+                    await new Promise(resolve => setTimeout(resolve, 100 * attempt));
+                }
+
+                const response = await sendMessage(message);
+                return response;
+            } catch (error) {
+                lastError = error instanceof Error ? error : new Error('Unknown error');
+                console.warn(`Message attempt ${attempt}/${maxRetries} failed:`, lastError.message);
+
+                // If it's the last attempt, don't continue
+                if (attempt === maxRetries) {
+                    break;
+                }
+            }
+        }
+
+        // If we get here, all attempts failed
+        console.error('All message attempts failed, falling back to defaults');
+
+        // Return sensible defaults instead of throwing
+        if (message.type === 'GET_CATEGORIES') {
+            return {
+                success: true,
+                data: [
+                    { id: 'work', name: 'Work', emoji: '💼', description: 'Professional tools, business, productivity' },
+                    { id: 'social', name: 'Social', emoji: '👥', description: 'Social media, forums, communities' },
+                    { id: 'news', name: 'News', emoji: '📰', description: 'News sites, blogs, journalism' },
+                    { id: 'tools', name: 'Tools', emoji: '🛠️', description: 'Development tools, utilities' },
+                    { id: 'learning', name: 'Learning', emoji: '📚', description: 'Education, tutorials, courses' },
+                    { id: 'shopping', name: 'Shopping', emoji: '🛒', description: 'E-commerce, products, deals' },
+                    { id: 'entertainment', name: 'Entertainment', emoji: '🎮', description: 'Games, videos, music' },
+                    { id: 'finance', name: 'Finance', emoji: '💰', description: 'Banking, investing, crypto' },
+                    { id: 'health', name: 'Health', emoji: '🏥', description: 'Medical, fitness, wellness' },
+                    { id: 'other', name: 'Other', emoji: '📂', description: 'Everything else' }
+                ]
+            };
+        }
+
+        if (message.type === 'GET_PROCESSING_STATUS') {
+            return {
+                success: true,
+                data: { isProcessing: false, queueLength: 0 }
+            };
+        }
+
+        throw lastError || new Error('Failed to communicate with background script');
     };
 
     if (isLoading) {
