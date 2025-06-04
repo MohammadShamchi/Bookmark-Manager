@@ -1,0 +1,56 @@
+{
+    "name": "ai-bookmark-manager",
+    "version": "1.0.0",
+    "description": "AI-powered Chrome extension for intelligent bookmark organization",
+    "main": "dist/background/service-worker.js",
+    "scripts": {
+        "dev": "webpack --mode development --watch",
+        "build": "webpack --mode production",
+        "test": "jest",
+        "lint": "eslint src --ext .ts,.tsx",
+        "type-check": "tsc --noEmit"
+    },
+    "dependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "zustand": "^4.4.1",
+        "framer-motion": "^10.16.4",
+        "openai": "^4.14.2",
+        "nanoid": "^5.0.3"
+    },
+    "devDependencies": {
+        "@types/react": "^18.2.37",
+        "@types/react-dom": "^18.2.15",
+        "@types/chrome": "^0.0.248",
+        "@types/node": "^20.8.10",
+        "@types/jest": "^29.5.7",
+        "typescript": "^5.2.2",
+        "webpack": "^5.89.0",
+        "webpack-cli": "^5.1.4",
+        "ts-loader": "^9.5.0",
+        "css-loader": "^6.8.1",
+        "style-loader": "^3.3.3",
+        "postcss": "^8.4.31",
+        "postcss-loader": "^7.3.3",
+        "tailwindcss": "^3.3.5",
+        "autoprefixer": "^10.4.16",
+        "html-webpack-plugin": "^5.5.3",
+        "copy-webpack-plugin": "^11.0.0",
+        "eslint": "^8.53.0",
+        "@typescript-eslint/eslint-plugin": "^6.10.0",
+        "@typescript-eslint/parser": "^6.10.0",
+        "jest": "^29.7.0",
+        "ts-jest": "^29.1.1",
+        "@testing-library/react": "^13.4.0",
+        "@testing-library/jest-dom": "^6.1.4"
+    },
+    "keywords": [
+        "chrome-extension",
+        "bookmark-manager",
+        "ai",
+        "react",
+        "typescript"
+    ],
+    "author": "Your Name",
+    "license": "MIT"
+}
