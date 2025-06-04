@@ -174,6 +174,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [Implementation Plan](./IMPLEMENTATION_PLAN.md) - Detailed development roadmap
 - [Testing Guide](./TESTING_GUIDE.md) - Comprehensive testing instructions
+- [AI Development Guide](./AI_DEVELOPMENT_GUIDE.md) - **Complete project context for AI tools (Cursor IDE, Copilot)**
 - [Technical Specifications](./TECH_SPEC.md) - Architecture details
 - [API Specifications](./API_SPEC.md) - Data models and interfaces
 
